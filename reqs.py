@@ -40,18 +40,14 @@ def search_by_index(index, simple=False):
     q = search_field(term=index, fields=['idx'])
     r = es.search(index=action_injector['_index'],body=q)
     name = r['hits']['hits'][0]['_source']['cond1']
-
+    rstring.append(name)
 
     if 'conc1' in r['hits']['hits'][0]['_source'].keys() and 'unit1' in r['hits']['hits'][0]['_source'].keys():
-        rstring.append(name)
         rstring.append(r['hits']['hits'][0]['_source']['conc1'])
         rstring.append(r['hits']['hits'][0]['_source']['unit1'])
 
     if not simple:
         # q = search_field(term=name,fields=['co# define distance between columns
-# define distance between rows
-# cluster on columns
-# cluster on Rowsnd1'])
         q = filter_field(term=name, field='cond1.original')
         r = es.search(index=action_injector['_index'], body=q)
 

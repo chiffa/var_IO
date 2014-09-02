@@ -16,6 +16,7 @@ from scipy.linalg import eigh
 from pickle import dump, load
 from Utils.matrix_2D_embedding import embed
 from Utils.Linalg_routines import hierchical_clustering
+from pprint import pprint
 
 # TODO: generate the buffering of the precomupted matrix
 
@@ -52,6 +53,7 @@ def better_hist(to_hist):
     xs = np.linspace(np.min(reprsh), np.max(reprsh), 200)
     plt.plot(xs, density(xs))
     plt.show()
+
 
 
 def distance(np_array1,np_array2):
@@ -234,13 +236,16 @@ def dist_matrix(axis, clusters):
     print labels
     stable_mappings = crible(10, labels)
     srt_idx = hierchical_clustering(accumulator_matrix, labels)
+
+    dump((stable_mappings, accumulator_matrix, srt_idx), open('loc_dump2.dmp','w'))
+
     print np.array(stable_mappings)[srt_idx].tolist()
 
     # TODO: define set of cuts, re-order the matrix and cluster it according to the cuts
 
     accumulator_matrix = accumulator_matrix[:,srt_idx]
     accumulator_matrix = accumulator_matrix[srt_idx,:]
-    plt.imshow(accumulator_matrix)
+    plt.imshow(accumulator_matrix, interpolation='nearest')
     plt.colorbar()
     plt.show()
     # embed(pre_accumulator_matrix, stable_mappings)
@@ -256,13 +261,83 @@ def dist_matrix(axis, clusters):
     plt.imshow(accumulator_matrix, interpolation='nearest')
     plt.show()
 
+
+def make_cuts():
+
+    def pull_selection(idxs):
+        print idxs
+        print pprint(labels[idxs].tolist())
+
+
+    labels, acc_matrix, srt_idx = load(open('loc_dump2.dmp','r'))
+    labels = np.array(labels)[srt_idx]
+    acc_matrix = acc_matrix[:,srt_idx]
+    acc_matrix = acc_matrix[srt_idx,:]
+
+    # plt.imshow(acc_matrix, interpolation='nearest')
+    # plt.yticks(range(0, 674), labels.tolist(), rotation='horizontal')
+    # plt.xticks(range(0, 674), labels.tolist(), rotation='vertical')
+    # plt.subplots_adjust(left=0.2, bottom=0.2)
+    # plt.show()
+
+
+    selector = range(0, 243)+range(420, 462)+range(654,674)
+
+    pull_selection(selector)
+
+    print selector
+    sub_ac = acc_matrix[selector, :]
+    sub_ac = sub_ac[:, selector]
+    sub_lbl = labels[selector]
+
+    rt_idx = hierchical_clustering(sub_ac, sub_lbl)
+    sub_ac = sub_ac[rt_idx,:]
+    sub_ac = sub_ac[:,rt_idx]
+    sub_lbl = sub_lbl[rt_idx]
+
+
+    # plt.imshow(sub_ac, interpolation='nearest')
+    # plt.yticks(range(0, 305), sub_lbl.tolist(), rotation='horizontal')
+    # plt.xticks(range(0, 305), sub_lbl.tolist(), rotation='vertical')
+    # plt.subplots_adjust(left=0.2, bottom=0.2)
+    # plt.show()
+
+    selector = range(0, 190)+range(290, 305)
+    sub_ac = sub_ac[selector,:]
+    sub_ac = sub_ac[:,selector]
+    sub_lbl = sub_lbl[selector]
+
+
+    plt.imshow(sub_ac, interpolation='nearest')
+    plt.yticks(range(0, 205), sub_lbl.tolist(), rotation='horizontal')
+    plt.xticks(range(0, 205), sub_lbl.tolist(), rotation='vertical')
+    plt.subplots_adjust(left=0.2, bottom=0.2)
+    plt.show()
+
+    labels = spectral_clustering(sub_ac, n_clusters=15, eigen_solver='arpack')
+    stable_mappings = crible(10, labels)
+    groups = np.reshape(labels, (sub_ac.shape[0], 1))
+    groupsets = []
+    for i in range(0, 15):
+        group_selector = groups==i
+        group_idxs = group_selector.nonzero()[0].tolist()
+        groupsets.append(group_idxs)
+    clustidx = np.array([item for itemset in groupsets for item in itemset])
+    sub_ac = sub_ac[:, clustidx]
+    sub_ac = sub_ac[clustidx, :]
+    plt.imshow(sub_ac, interpolation='nearest')
+    plt.show()
+
+
+exclusion_list = ['itraconazole',]
+
 # print histogramize('benomyl', [12, 11, 2, 10], [2.4, 3.4, 13.8, 27.6])
 # split_titles()
 
 # crible(10)
 
-dist_matrix(1, 10)
-
+# dist_matrix(1, 10)
+make_cuts()
 
 
 # print len(title_line)
