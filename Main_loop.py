@@ -10,12 +10,12 @@ from scipy.stats import gaussian_kde
 from random import shuffle
 from scipy.stats import entropy as KL_div
 from itertools import combinations
-from reqs import search_by_index, es, action_injector, double_screen
+from reqs import search_by_index, es, action_injector, double_screen, get_similar, search_by_name
 from sklearn.cluster import spectral_clustering
 from scipy.linalg import eigh
 from pickle import dump, load
 from Utils.matrix_2D_embedding import embed
-from Utils.Linalg_routines import hierchical_clustering
+from Utils.Linalg_routines import hierchical_clustering, show_matrix_with_names
 from pprint import pprint
 
 # TODO: generate the buffering of the precomupted matrix
@@ -59,10 +59,17 @@ def better_hist(to_hist):
 def distance(np_array1,np_array2):
     msk = np.logical_not(np.logical_or(np.isnan(np_array1), np.isnan(np_array2)))
     re_array1, re_array2 = (np_array1[msk], np_array2[msk])
-    msk1 = np.logical_and(re_array1<1, re_array1>-1)
-    msk2 = np.logical_and(re_array2<1, re_array2>-1)
-    re_array1[msk1]=0
-    re_array2[msk2]=0
+    msk1 = np.argsort(re_array1)[:20].tolist() + np.argsort(re_array1)[-20:].tolist()
+    msk2 = np.argsort(re_array2)[:20].tolist() + np.argsort(re_array2)[-20:].tolist()
+    tlt_msk = np.zeros(re_array1.shape).astype(dtype=np.bool)
+    tlt_msk[msk1] = True
+    tlt_msk[msk2] = True
+    re_array1[np.logical_not(tlt_msk)] = 0
+    re_array2[np.logical_not(tlt_msk)] = 0
+    # msk1 = np.logical_and(re_array1<1, re_array1>-1)
+    # msk2 = np.logical_and(re_array2<1, re_array2>-1)
+    # re_array1[msk1]=0
+    # re_array2[msk2]=0
     re_array1, re_array2 = (np.exp(re_array1), np.exp(re_array2))
 
     return np.sqrt(0.5*KL_div(re_array1, re_array2)+0.5*KL_div(re_array2, re_array1))
@@ -91,24 +98,62 @@ def dist_mat(index_list, axis):
     return accumulator_matrix
 
 
+def reduce_shards(shards):
+    exclusion_list = []
+    re_shards = np.zeros(shards.shape)
+    for i in range(0, shards.shape[1]):
+        if i not in exclusion_list:
+            idxs, _ = get_similar(i)
+            exclusion_list += idxs
+            sub_shards = shards[:,idxs]
+            if sub_shards.shape[1]>1:
+                safe_shards = np.ma.masked_array(sub_shards, np.isnan(sub_shards)).T
+                shard_median = np.median(safe_shards, axis=0)
+                shard_std = np.std(safe_shards, axis=0)
+                plus_ctrl = shard_median + shard_std
+                mins_ctrl = shard_median - shard_std
+                flt1 = safe_shards > plus_ctrl
+                flt2 = safe_shards < mins_ctrl
+                plus_ctrl = plus_ctrl.reshape((1, safe_shards.shape[1]))
+                mins_ctrl = mins_ctrl.reshape((1, safe_shards.shape[1]))
+                rba1 = np.ma.masked_array(np.repeat(plus_ctrl, safe_shards.shape[0], axis=0).T, np.isnan(sub_shards)).T
+                rba2 = np.ma.masked_array(np.repeat(mins_ctrl, safe_shards.shape[0], axis=0).T, np.isnan(sub_shards)).T
+                safe_shards[flt1] = rba1[flt1]
+                safe_shards[flt2] = rba2[flt2]
+                mean_shards = np.mean(safe_shards, axis=0).T
+                mean_shards.filled(np.nan)
+                re_shards[:, i] = mean_shards
+            else:
+                re_shards[:,i] = shards[:,i]
+    return re_shards
+
+
 
 with open(source, 'rb') as sf:
     rdr = reader(sf, 'excel-tab')
     title_line = rdr.next()
-    shards = []
+    pre_shards = []
     gene_names = []
     for line in rdr:
         gene_names.append(line[0].split(':')[0])
-        shards.append([cst_float(elt) for elt in line[1:]])
+        pre_shards.append([cst_float(elt) for elt in line[1:]])
 
 
-shards = np.array(shards)
+pre_shards = np.array(pre_shards)
+shards = reduce_shards(pre_shards)
+
 # plt.imshow(shards, interpolation='nearest')
 # plt.show()
 #
 # better_hist(shards)
 # better_hist(np.nanstd(shards, axis=1))
 # better_hist(np.nanmean(shards, axis=1))
+
+def show_range(idx):
+    idxs, names = get_similar(idx)
+    re_shards = pre_shards[:, idxs]
+    show_matrix_with_names(re_shards, gene_names, names)
+
 
 
 def histogramize(name, index_list, conc_list):
@@ -190,29 +235,29 @@ def crible(N, support_matrix=None):
 
 
 def dist_matrix(axis, clusters):
-    # fltr = np.ones(shards.shape[axis]).astype(dtype=np.int16)
-    # if axis:
-    #     for i in range(0, shards.shape[axis]):
-    #         if double_screen(i):
-    #             fltr[i] = 0
-    #     re_shards = shards[:, fltr>0]
-    # else:
-    #     re_shards = shards
-    # print re_shards.shape
-    # c_list = np.split(re_shards, re_shards.shape[axis], axis)
-    # accumulator_matrix = np.zeros((re_shards.shape[axis], re_shards.shape[axis]))
-    # est_len = re_shards.shape[axis]*(re_shards.shape[axis]-1)/2
-    # for i, (i_a, i_b) in enumerate(combinations(range(0, re_shards.shape[axis]), 2)):
-    #     if not i%100:
-    #         pl = "{0:0.2f}".format(i/float(est_len)*100.0)
-    #         print pl, '%'
-    #     a = c_list[i_a]
-    #     b = c_list[i_b]
-    #     dist = distance(a, b)
-    #     accumulator_matrix[i_a, i_b] = dist
-    #     accumulator_matrix[i_b, i_a] = dist
-    #
-    # dump(accumulator_matrix,open('loc_dump.dmp','w'))
+    fltr = np.ones(shards.shape[axis]).astype(dtype=np.int16)
+    if axis:
+        for i in range(0, shards.shape[axis]):
+            if double_screen(i):
+                fltr[i] = 0
+        re_shards = shards[:, fltr>0]
+    else:
+        re_shards = shards
+    print re_shards.shape
+    c_list = np.split(re_shards, re_shards.shape[axis], axis)
+    accumulator_matrix = np.zeros((re_shards.shape[axis], re_shards.shape[axis]))
+    est_len = re_shards.shape[axis]*(re_shards.shape[axis]-1)/2
+    for i, (i_a, i_b) in enumerate(combinations(range(0, re_shards.shape[axis]), 2)):
+        if not i%100:
+            pl = "{0:0.2f}".format(i/float(est_len)*100.0)
+            print pl, '%'
+        a = c_list[i_a]
+        b = c_list[i_b]
+        dist = distance(a, b)
+        accumulator_matrix[i_a, i_b] = dist
+        accumulator_matrix[i_b, i_a] = dist
+
+    dump(accumulator_matrix,open('loc_dump.dmp','w'))
 
     ##########################################################################################################
 
@@ -274,18 +319,17 @@ def make_cuts():
     acc_matrix = acc_matrix[:,srt_idx]
     acc_matrix = acc_matrix[srt_idx,:]
 
-    # plt.imshow(acc_matrix, interpolation='nearest')
+    plt.imshow(acc_matrix, interpolation='nearest')
     # plt.yticks(range(0, 674), labels.tolist(), rotation='horizontal')
     # plt.xticks(range(0, 674), labels.tolist(), rotation='vertical')
     # plt.subplots_adjust(left=0.2, bottom=0.2)
-    # plt.show()
+    plt.show()
 
 
-    selector = range(0, 243)+range(420, 462)+range(654,674)
+    selector = range(0, 85)+range(615,674)
 
     pull_selection(selector)
 
-    print selector
     sub_ac = acc_matrix[selector, :]
     sub_ac = sub_ac[:, selector]
     sub_lbl = labels[selector]
@@ -296,25 +340,25 @@ def make_cuts():
     sub_lbl = sub_lbl[rt_idx]
 
 
-    # plt.imshow(sub_ac, interpolation='nearest')
-    # plt.yticks(range(0, 305), sub_lbl.tolist(), rotation='horizontal')
-    # plt.xticks(range(0, 305), sub_lbl.tolist(), rotation='vertical')
-    # plt.subplots_adjust(left=0.2, bottom=0.2)
-    # plt.show()
-
-    selector = range(0, 190)+range(290, 305)
-    sub_ac = sub_ac[selector,:]
-    sub_ac = sub_ac[:,selector]
-    sub_lbl = sub_lbl[selector]
-
-
     plt.imshow(sub_ac, interpolation='nearest')
-    plt.yticks(range(0, 205), sub_lbl.tolist(), rotation='horizontal')
-    plt.xticks(range(0, 205), sub_lbl.tolist(), rotation='vertical')
+    plt.yticks(range(0, 305), sub_lbl.tolist(), rotation='horizontal')
+    plt.xticks(range(0, 305), sub_lbl.tolist(), rotation='vertical')
     plt.subplots_adjust(left=0.2, bottom=0.2)
     plt.show()
 
-    labels = spectral_clustering(sub_ac, n_clusters=15, eigen_solver='arpack')
+    # selector = range(0, 190)+range(290, 305)
+    # sub_ac = sub_ac[selector,:]
+    # sub_ac = sub_ac[:,selector]
+    # sub_lbl = sub_lbl[selector]
+    #
+    #
+    # plt.imshow(sub_ac, interpolation='nearest')
+    # plt.yticks(range(0, 205), sub_lbl.tolist(), rotation='horizontal')
+    # plt.xticks(range(0, 205), sub_lbl.tolist(), rotation='vertical')
+    # plt.subplots_adjust(left=0.2, bottom=0.2)
+    # plt.show()
+
+    labels = spectral_clustering(sub_ac, n_clusters=25, eigen_solver='arpack')
     stable_mappings = crible(10, labels)
     groups = np.reshape(labels, (sub_ac.shape[0], 1))
     groupsets = []
@@ -326,18 +370,24 @@ def make_cuts():
     sub_ac = sub_ac[:, clustidx]
     sub_ac = sub_ac[clustidx, :]
     plt.imshow(sub_ac, interpolation='nearest')
+    plt.colorbar()
     plt.show()
 
 
-exclusion_list = ['itraconazole',]
+def aling(name):
+    pass
+
+# exclusion_list = ['itraconazole',]
 
 # print histogramize('benomyl', [12, 11, 2, 10], [2.4, 3.4, 13.8, 27.6])
 # split_titles()
 
+show_range(145)
+
 # crible(10)
 
 # dist_matrix(1, 10)
-make_cuts()
+# make_cuts()
 
 
 # print len(title_line)

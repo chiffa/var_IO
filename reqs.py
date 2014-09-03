@@ -88,6 +88,48 @@ def double_screen(index):
     return 'conc2' in r['hits']['hits'][0]['_source'].keys()
 
 
+
+def search_by_name(name, conc=None, unit=None):
+    q = filter_field(term=name, field='cond1.original')
+    r = es.search(index=action_injector['_index'], body=q)
+
+    cumstring = []
+    cumindx = []
+    for elt in r['hits']['hits']:
+        rstring = []
+        print name, conc, unit
+        rstring.append(name)
+
+        if 'conc1' in elt['_source'].keys() and 'unit1' in elt['_source'].keys():
+            rstring.append(elt['_source']['conc1'])
+            rstring.append(elt['_source']['unit1'])
+
+        if 'conc2' not in elt['_source'].keys():
+            if conc and unit:
+                if 'conc1' in elt['_source']and 'unit1' in elt['_source'] and elt['_source']['conc1'] == conc and elt['_source']['unit1'] == unit:
+                    cumstring.append(', '.join(rstring))
+                    cumindx.append(elt['_source']['idx'])
+            else:
+                cumstring.append(', '.join(rstring))
+                cumindx.append(elt['_source']['idx'])
+
+    return cumindx, cumstring
+
+
+def get_similar(idx):
+
+    q = search_field(term=idx, fields=['idx'])
+    r = es.search(index=action_injector['_index'],body=q)
+    name = r['hits']['hits'][0]['_source']['cond1']
+
+    if not 'conc1' in r['hits']['hits'][0]['_source'].keys() or not 'unit1' in r['hits']['hits'][0]['_source'].keys():
+        return search_by_name(name)
+
+    else:
+        return search_by_name(name, r['hits']['hits'][0]['_source']['conc1'], r['hits']['hits'][0]['_source']['unit1'])
+
 if __name__ == "__main__":
     # print search_by_index(2)
+    print get_similar(145)
+    print search_by_name('methotrexate','250','um')
     pass
