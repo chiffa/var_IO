@@ -200,6 +200,14 @@ def hierchical_clustering(D, titles):
 
     return index
 
+def show_matrix_with_names(matrix, vert_names, horiz_names):
+    plt.imshow(matrix, interpolation='nearest')
+    plt.colorbar()
+    plt.yticks(range(0, len(vert_names)), vert_names, rotation='horizontal')
+    plt.xticks(range(0, len(horiz_names)), horiz_names, rotation='vertical')
+    plt.subplots_adjust(left=0.2, bottom=0.2)
+    plt.show()
+
 
 if __name__ == "__main__":
     test_lapl = lil_matrix(np.zeros((4, 4)))
