@@ -22,11 +22,17 @@ def match_all():
 
 
 def search_field(term, fields):
-    return simple_query({"query":term, "fields":fields},['query','query_string'])
+    quer = simple_query({"query":term, "fields":fields},['query','query_string'])
+    quer["from"] = 0
+    quer["size"] = 50
+    return quer
 
 
 def filter_field(term, field):
-    return simple_query({field:term}, ['query','constant_score','filter','term'])
+    quer = simple_query({field:term}, ['query','constant_score','filter','term'])
+    quer["from"] = 0
+    quer["size"] = 50
+    return quer
 
 
 def term_filter():
