@@ -55,7 +55,7 @@ def search_by_index(index, simple=False):
         conc_set = []
         for elt in r['hits']['hits']:
             try:
-                print elt['_source']['idx'], elt['_source']['cond1'], elt['_source']['conc1'], elt['_source']['unit1'], '\t-\t','conc2' in elt['_source'].keys()
+                # print elt['_source']['idx'], elt['_source']['cond1'], elt['_source']['conc1'], elt['_source']['unit1'], '\t-\t','conc2' in elt['_source'].keys()
                 if not 'conc2' in elt['_source'].keys():
                     idx_set.append(elt['_source']['idx'])
                     conc_set.append(elt['_source']['conc1'])
@@ -74,7 +74,7 @@ def search_by_index(index, simple=False):
         idx_set = idx_set[np.argsort(conc_set)]
         conc_set = np.sort(conc_set)
 
-        print idx_set, conc_set
+        # print idx_set, conc_set
 
         return name, idx_set.tolist(), conc_set.tolist()
 
@@ -97,7 +97,7 @@ def search_by_name(name, conc=None, unit=None):
     cumindx = []
     for elt in r['hits']['hits']:
         rstring = []
-        print name, conc, unit
+        # print name, conc, unit
         rstring.append(name)
 
         if 'conc1' in elt['_source'].keys() and 'unit1' in elt['_source'].keys():
@@ -106,7 +106,7 @@ def search_by_name(name, conc=None, unit=None):
 
         if 'conc2' not in elt['_source'].keys():
             if conc and unit:
-                if 'conc1' in elt['_source']and 'unit1' in elt['_source'] and elt['_source']['conc1'] == conc and elt['_source']['unit1'] == unit:
+                if 'conc1' in elt['_source'] and 'unit1' in elt['_source'] and elt['_source']['conc1'] == conc and elt['_source']['unit1'] == unit:
                     cumstring.append(', '.join(rstring))
                     cumindx.append(elt['_source']['idx'])
             else:
@@ -130,6 +130,6 @@ def get_similar(idx):
 
 if __name__ == "__main__":
     # print search_by_index(2)
-    print get_similar(145)
-    print search_by_name('methotrexate','250','um')
+    print get_similar(0)
+    print search_by_name('clotrimazole')
     pass

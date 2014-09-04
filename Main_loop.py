@@ -17,13 +17,8 @@ from pickle import dump, load
 from Utils.matrix_2D_embedding import embed
 from Utils.Linalg_routines import hierchical_clustering, show_matrix_with_names
 from pprint import pprint
-
-# TODO: generate the buffering of the precomupted matrix
-
-# TODO: > remove double screens => ok
-# TODO: > deconvolve the neutral genes (~0 effect) from significantly affected => ok
-
-# TODO: try to laplace-normalize the matrices before clustering
+from collections import Counter
+from bunch import bunchify
 
 
 source = '/home/ank/' 'projects_files/2014/BRU_GBO/4th_gen/het.ratio_result_nm.goodbatch.pub'
@@ -100,11 +95,13 @@ def dist_mat(index_list, axis):
 
 def reduce_shards(shards):
     exclusion_list = []
+    non_nilled = []
     re_shards = np.zeros(shards.shape)
     for i in range(0, shards.shape[1]):
-        if i not in exclusion_list:
-            idxs, _ = get_similar(i)
-            exclusion_list += idxs
+        if i not in exclusion_list and not double_screen(i):
+            non_nilled.append(i)
+            idxs, cumstring = get_similar(i)
+            exclusion_list = exclusion_list + idxs
             sub_shards = shards[:,idxs]
             if sub_shards.shape[1]>1:
                 safe_shards = np.ma.masked_array(sub_shards, np.isnan(sub_shards)).T
@@ -125,24 +122,24 @@ def reduce_shards(shards):
                 re_shards[:, i] = mean_shards
             else:
                 re_shards[:,i] = shards[:,i]
-    return re_shards
+    return re_shards, np.array(non_nilled)
 
 
+#
+# with open(source, 'rb') as sf:
+#     rdr = reader(sf, 'excel-tab')
+#     title_line = rdr.next()
+#     pre_shards = []
+#     gene_names = []
+#     for line in rdr:
+#         gene_names.append(line[0].split(':')[0])
+#         pre_shards.append([cst_float(elt) for elt in line[1:]])
+#
+#
+# pre_shards = np.array(pre_shards)
+# shards, non_nilled = reduce_shards(pre_shards)
 
-with open(source, 'rb') as sf:
-    rdr = reader(sf, 'excel-tab')
-    title_line = rdr.next()
-    pre_shards = []
-    gene_names = []
-    for line in rdr:
-        gene_names.append(line[0].split(':')[0])
-        pre_shards.append([cst_float(elt) for elt in line[1:]])
-
-
-pre_shards = np.array(pre_shards)
-shards = reduce_shards(pre_shards)
-
-# plt.imshow(shards, interpolation='nearest')
+# plt.imshow(shards, interpolation='nearest')added costum cleaning to the data
 # plt.show()
 #
 # better_hist(shards)
@@ -200,20 +197,21 @@ def split_titles():
     bulk(es, cases)
 
 
-def crible(N, support_matrix=None):
+def crible(N, support_labels=None, non_nilled=None):
     i=0
     src = range(0, len(title_line[1:]))
     padding = np.array(src)
     insertor = np.zeros(padding.shape).tolist()
     done = [0]
 
-    if support_matrix is not None:
-        for i in range(0, np.max(support_matrix)+1):
+    if support_labels is not None:
+        for i in range(0, np.max(support_labels)+1):
             print i
-            pre_padding = padding[support_matrix==i].tolist()
+            pre_padding = padding[support_labels==i].tolist()
             print pre_padding
             for i in pre_padding:
-                si = search_by_index(i, simple=True)
+                # mismapping corrected here
+                si = search_by_index(non_nilled[i], simple=True)
                 print si
                 insertor[i] = si
         return insertor
@@ -228,6 +226,8 @@ def crible(N, support_matrix=None):
                 i += 1
 
 
+# np.array v.s. list ?
+
 # define distance between columns
 # define distance between rows
 # cluster on columns
@@ -235,29 +235,25 @@ def crible(N, support_matrix=None):
 
 
 def dist_matrix(axis, clusters):
-    fltr = np.ones(shards.shape[axis]).astype(dtype=np.int16)
-    if axis:
-        for i in range(0, shards.shape[axis]):
-            if double_screen(i):
-                fltr[i] = 0
-        re_shards = shards[:, fltr>0]
-    else:
-        re_shards = shards
-    print re_shards.shape
-    c_list = np.split(re_shards, re_shards.shape[axis], axis)
-    accumulator_matrix = np.zeros((re_shards.shape[axis], re_shards.shape[axis]))
-    est_len = re_shards.shape[axis]*(re_shards.shape[axis]-1)/2
-    for i, (i_a, i_b) in enumerate(combinations(range(0, re_shards.shape[axis]), 2)):
-        if not i%100:
-            pl = "{0:0.2f}".format(i/float(est_len)*100.0)
-            print pl, '%'
-        a = c_list[i_a]
-        b = c_list[i_b]
-        dist = distance(a, b)
-        accumulator_matrix[i_a, i_b] = dist
-        accumulator_matrix[i_b, i_a] = dist
-
-    dump(accumulator_matrix,open('loc_dump.dmp','w'))
+    # if axis:
+    #     re_shards = shards[:, non_nilled]
+    # else:
+    #     re_shards = shards
+    # print re_shards.shape
+    # c_list = np.split(re_shards, re_shards.shape[axis], axis)
+    # accumulator_matrix = np.zeros((re_shards.shape[axis], re_shards.shape[axis]))
+    # est_len = re_shards.shape[axis]*(re_shards.shape[axis]-1)/2
+    # for i, (i_a, i_b) in enumerate(combinations(range(0, re_shards.shape[axis]), 2)):
+    #     if not i%100:
+    #         pl = "{0:0.2f}".format(i/float(est_len)*100.0)
+    #         print pl, '%'
+    #     a = c_list[i_a]
+    #     b = c_list[i_b]
+    #     dist = distance(a, b)
+    #     accumulator_matrix[i_a, i_b] = dist
+    #     accumulator_matrix[i_b, i_a] = dist
+    #
+    # dump(accumulator_matrix,open('loc_dump.dmp','w'))
 
     ##########################################################################################################
 
@@ -272,39 +268,39 @@ def dist_matrix(axis, clusters):
 
     vals, vects =  eigh(accumulator_matrix)
     plt.hist(vals, 1000, log=True)
-    vals[vals**2 < 0.9] = 0
+    vals[vals**2 < 0.3] = 0
     print vals
     # accumulator_matrix = np.dot(vects, np.dot(np.diag(vals), vects.T))
     plt.show()
 
     labels = spectral_clustering(accumulator_matrix, n_clusters=clusters, eigen_solver='arpack')
     print labels
-    stable_mappings = crible(10, labels)
+    stable_mappings = crible(10, labels, non_nilled)
+    print 'stable mappings redundancy:', len(stable_mappings), len(set(stable_mappings))
     srt_idx = hierchical_clustering(accumulator_matrix, labels)
 
-    dump((stable_mappings, accumulator_matrix, srt_idx), open('loc_dump2.dmp','w'))
+    dump((stable_mappings, accumulator_matrix, srt_idx, non_nilled), open('loc_dump2.dmp','w'))
 
-    print np.array(stable_mappings)[srt_idx].tolist()
-
-    # TODO: define set of cuts, re-order the matrix and cluster it according to the cuts
-
-    accumulator_matrix = accumulator_matrix[:,srt_idx]
-    accumulator_matrix = accumulator_matrix[srt_idx,:]
-    plt.imshow(accumulator_matrix, interpolation='nearest')
-    plt.colorbar()
-    plt.show()
-    # embed(pre_accumulator_matrix, stable_mappings)
-    groups = np.reshape(labels, (accumulator_matrix.shape[0], 1))
-    groupsets = []
-    for i in range(0, clusters):
-        group_selector = groups==i
-        group_idxs = group_selector.nonzero()[0].tolist()
-        groupsets.append(group_idxs)
-    clustidx = np.array([item for itemset in groupsets for item in itemset])
-    accumulator_matrix = accumulator_matrix[:, clustidx]
-    accumulator_matrix = accumulator_matrix[clustidx, :]
-    plt.imshow(accumulator_matrix, interpolation='nearest')
-    plt.show()
+    # print np.array(stable_mappings)[srt_idx].tolist()
+    #
+    #
+    # accumulator_matrix = accumulator_matrix[:,srt_idx]
+    # accumulator_matrix = accumulator_matrix[srt_idx,:]
+    # plt.imshow(accumulator_matrix, interpolation='nearest')
+    # plt.colorbar()
+    # plt.show()
+    # # embed(pre_accumulator_matrix, stable_mappings)
+    # groups = np.reshape(labels, (accumulator_matrix.shape[0], 1))
+    # groupsets = []
+    # for i in range(0, clusters):
+    #     group_selector = groups==i
+    #     group_idxs = group_selector.nonzero()[0].tolist()
+    #     groupsets.append(group_idxs)
+    # clustidx = np.array([item for itemset in groupsets for item in itemset])
+    # accumulator_matrix = accumulator_matrix[:, clustidx]
+    # accumulator_matrix = accumulator_matrix[clustidx, :]
+    # plt.imshow(accumulator_matrix, interpolation='nearest')
+    # plt.show()
 
 
 def make_cuts():
@@ -314,7 +310,7 @@ def make_cuts():
         print pprint(labels[idxs].tolist())
 
 
-    labels, acc_matrix, srt_idx = load(open('loc_dump2.dmp','r'))
+    labels, acc_matrix, srt_idx, non_nilled = load(open('loc_dump2.dmp','r'))
     labels = np.array(labels)[srt_idx]
     acc_matrix = acc_matrix[:,srt_idx]
     acc_matrix = acc_matrix[srt_idx,:]
@@ -326,7 +322,7 @@ def make_cuts():
     plt.show()
 
 
-    selector = range(0, 85)+range(615,674)
+    selector = range(0, 44)+range(395, 461)
 
     pull_selection(selector)
 
@@ -339,10 +335,11 @@ def make_cuts():
     sub_ac = sub_ac[:,rt_idx]
     sub_lbl = sub_lbl[rt_idx]
 
-
+    for elt in sub_lbl.tolist():
+        print elt
     plt.imshow(sub_ac, interpolation='nearest')
-    plt.yticks(range(0, 305), sub_lbl.tolist(), rotation='horizontal')
-    plt.xticks(range(0, 305), sub_lbl.tolist(), rotation='vertical')
+    plt.yticks(range(0, len(selector)), sub_lbl.tolist(), rotation='horizontal')
+    plt.xticks(range(0, len(selector)), sub_lbl.tolist(), rotation='vertical')
     plt.subplots_adjust(left=0.2, bottom=0.2)
     plt.show()
 
@@ -350,16 +347,19 @@ def make_cuts():
     # sub_ac = sub_ac[selector,:]
     # sub_ac = sub_ac[:,selector]
     # sub_lbl = sub_lbl[selector]
-    #
-    #
+
+
     # plt.imshow(sub_ac, interpolation='nearest')
     # plt.yticks(range(0, 205), sub_lbl.tolist(), rotation='horizontal')
     # plt.xticks(range(0, 205), sub_lbl.tolist(), rotation='vertical')
     # plt.subplots_adjust(left=0.2, bottom=0.2)
     # plt.show()
 
-    labels = spectral_clustering(sub_ac, n_clusters=25, eigen_solver='arpack')
-    stable_mappings = crible(10, labels)
+    clusters = []
+
+    labels = spectral_clustering(sub_ac, n_clusters=5, eigen_solver='arpack')
+    for el1, el2 in zip(sub_lbl[np.argsort(labels)].tolist(), np.array(labels)[np.argsort(labels)].tolist()):
+        print el2, el1
     groups = np.reshape(labels, (sub_ac.shape[0], 1))
     groupsets = []
     for i in range(0, 15):
@@ -382,12 +382,12 @@ def aling(name):
 # print histogramize('benomyl', [12, 11, 2, 10], [2.4, 3.4, 13.8, 27.6])
 # split_titles()
 
-show_range(145)
+# show_range(145)
 
 # crible(10)
 
 # dist_matrix(1, 10)
-# make_cuts()
+make_cuts()
 
 
 # print len(title_line)
