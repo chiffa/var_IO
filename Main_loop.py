@@ -19,9 +19,16 @@ from Utils.Linalg_routines import hierchical_clustering, show_matrix_with_names
 from pprint import pprint
 from collections import Counter
 from bunch import bunchify
-
+from Utils.dataviz import better2D_desisty_plot
 
 source = '/home/ank/' 'projects_files/2014/BRU_GBO/4th_gen/het.ratio_result_nm.goodbatch.pub'
+
+active_rows = [472, 319, 487, 484, 468, 481, 325, 477, 324, 470, 471, 476, 466, 482, 715, 713, 712, 716, 717, 488, 473,
+               469, 483, 714, 718, 82, 95, 207, 199, 303, 87, 213, 307, 316, 10, 163, 313, 69, 89, 292, 462, 464, 183,
+               109, 168, 72, 485, 467, 474, 418, 200, 34, 55, 406, 637, 674, 676, 701, 500, 550, 103, 171, 538, 695,
+               254, 666, 595, 516, 136, 498, 698, 632, 492, 626, 503, 496, 512, 581, 699, 644, 635, 636, 40, 41, 1,
+               0, 2, 417, 580, 631, 191, 222, 602, 551, 299, 13, 50, 451, 645, 68, 696, 510, 723, 513, 641, 499, 693,
+               633, 675, 649]
 
 
 def automap(list1, list2):
@@ -70,6 +77,17 @@ def distance(np_array1,np_array2):
     return np.sqrt(0.5*KL_div(re_array1, re_array2)+0.5*KL_div(re_array2, re_array1))
 
 
+def labeled_imshow(matrix, label1=None, label2=None):
+    plt.imshow(matrix, interpolation='nearest')
+    if label1 is not None and label2 is None:
+        plt.yticks(range(0, len(label1)), label1, rotation='horizontal')
+        plt.xticks(range(0, len(label1)), label1, rotation='vertical')
+        plt.subplots_adjust(left=0.2, bottom=0.2)
+    if label1 is not None and label2 is not None:
+        plt.yticks(range(0, len(label2)), label2, rotation='horizontal')
+        plt.xticks(range(0, len(label1)), label1, rotation='vertical')
+        plt.subplots_adjust(left=0.2, bottom=0.2)
+    plt.show()
 
 
 def dist_mat(index_list, axis):
@@ -124,8 +142,6 @@ def reduce_shards(shards):
                 re_shards[:,i] = shards[:,i]
     return re_shards, np.array(non_nilled)
 
-
-#
 # with open(source, 'rb') as sf:
 #     rdr = reader(sf, 'excel-tab')
 #     title_line = rdr.next()
@@ -199,8 +215,11 @@ def split_titles():
 
 def crible(N, support_labels=None, non_nilled=None):
     i=0
-    src = range(0, len(title_line[1:]))
+    src = range(0, len(non_nilled))
     padding = np.array(src)
+    print padding.__len__()
+    print support_labels.__len__()
+    raw_input("Press Enter to continue...")
     insertor = np.zeros(padding.shape).tolist()
     done = [0]
 
@@ -209,11 +228,11 @@ def crible(N, support_labels=None, non_nilled=None):
             print i
             pre_padding = padding[support_labels==i].tolist()
             print pre_padding
-            for i in pre_padding:
+            for j in pre_padding:
                 # mismapping corrected here
-                si = search_by_index(non_nilled[i], simple=True)
+                si = search_by_index(non_nilled[j], simple=True)
                 print si
-                insertor[i] = si
+                insertor[j] = si
         return insertor
 
     else:
@@ -335,6 +354,7 @@ def make_cuts():
     sub_ac = sub_ac[:,rt_idx]
     sub_lbl = sub_lbl[rt_idx]
 
+
     for elt in sub_lbl.tolist():
         print elt
     plt.imshow(sub_ac, interpolation='nearest')
@@ -355,6 +375,12 @@ def make_cuts():
     # plt.subplots_adjust(left=0.2, bottom=0.2)
     # plt.show()
 
+    idxs = np.array(range(0, len(title_line[1:])))
+    print '>>>>>>>>>>>>>>>>>> Indexes! <<<<<<<<<<<<<<<<<<<<<<'
+    print idxs[non_nilled][srt_idx][selector][rt_idx].tolist()
+
+    raw_input("Press Enter to continue...")
+
     clusters = []
 
     labels = spectral_clustering(sub_ac, n_clusters=5, eigen_solver='arpack')
@@ -374,8 +400,28 @@ def make_cuts():
     plt.show()
 
 
-def aling(name):
-    pass
+def determine_spread():
+    # valid_shards = shards[:, active_rows]
+    # valid_labels = [search_by_index(i, simple=True) for i in active_rows]
+    #
+    # dump((valid_labels, valid_shards, gene_names), open('loc_dump3.dmp','w'))
+    #
+    ##################################################################################
+
+    valid_labels, valid_shards, gene_names = load(open('loc_dump3.dmp','r'))
+
+    # labeled_imshow(valid_shards, valid_labels, gene_names)
+
+
+    x = np.repeat(np.arange(len(valid_labels)), len(gene_names)).flatten()
+    y = valid_shards.T.reshape((1, len(valid_labels)*len(gene_names))).flatten()
+
+    print y.shape
+    print x.shape
+
+    better2D_desisty_plot(x, y)
+    # plt.xticks(range(0, len(valid_labels)), valid_labels, rotation='vertical')
+    plt.show()
 
 # exclusion_list = ['itraconazole',]
 
@@ -387,7 +433,8 @@ def aling(name):
 # crible(10)
 
 # dist_matrix(1, 10)
-make_cuts()
+# make_cuts()
 
+determine_spread()
 
 # print len(title_line)
