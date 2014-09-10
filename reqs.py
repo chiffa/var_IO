@@ -129,7 +129,7 @@ def get_similar(idx):
         return search_by_name(name, r['hits']['hits'][0]['_source']['conc1'], r['hits']['hits'][0]['_source']['unit1'])
 
 if __name__ == "__main__":
-    print search_by_index(472)
+    # print search_by_index(472)
     # print get_similar(0)
-    # print search_by_name('clotrimazole')
+    print search_by_name('37 degrees C')
     pass
