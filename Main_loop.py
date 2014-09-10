@@ -142,18 +142,18 @@ def reduce_shards(shards):
                 re_shards[:,i] = shards[:,i]
     return re_shards, np.array(non_nilled)
 
-# with open(source, 'rb') as sf:
-#     rdr = reader(sf, 'excel-tab')
-#     title_line = rdr.next()
-#     pre_shards = []
-#     gene_names = []
-#     for line in rdr:
-#         gene_names.append(line[0].split(':')[0])
-#         pre_shards.append([cst_float(elt) for elt in line[1:]])
-#
-#
-# pre_shards = np.array(pre_shards)
-# shards, non_nilled = reduce_shards(pre_shards)
+with open(source, 'rb') as sf:
+    rdr = reader(sf, 'excel-tab')
+    title_line = rdr.next()
+    pre_shards = []
+    gene_names = []
+    for line in rdr:
+        gene_names.append(line[0].split(':')[0])
+        pre_shards.append([cst_float(elt) for elt in line[1:]])
+
+
+pre_shards = np.array(pre_shards)
+shards, non_nilled = reduce_shards(pre_shards)
 
 # plt.imshow(shards, interpolation='nearest')added costum cleaning to the data
 # plt.show()
@@ -175,7 +175,7 @@ def histogramize(name, index_list, conc_list):
     fig = plt.gcf()
     fig.canvas.set_window_title(name)
     for i, index in enumerate(index_list):
-        prsh = shards[:,index]
+        prsh = pre_shards[:,index]
         selsh = np.logical_not(np.isnan(prsh))
         reprsh = prsh[selsh]
         lst.append((np.mean(reprsh), np.std(reprsh)))
@@ -215,15 +215,15 @@ def split_titles():
 
 def crible(N, support_labels=None, non_nilled=None):
     i=0
-    src = range(0, len(non_nilled))
-    padding = np.array(src)
-    print padding.__len__()
-    print support_labels.__len__()
-    raw_input("Press Enter to continue...")
-    insertor = np.zeros(padding.shape).tolist()
     done = [0]
 
     if support_labels is not None:
+        src = range(0, len(non_nilled))
+        padding = np.array(src)
+        print padding.__len__()
+        print support_labels.__len__()
+        raw_input("Press Enter to continue...")
+        insertor = np.zeros(padding.shape).tolist()
         for i in range(0, np.max(support_labels)+1):
             print i
             pre_padding = padding[support_labels==i].tolist()
@@ -236,6 +236,7 @@ def crible(N, support_labels=None, non_nilled=None):
         return insertor
 
     else:
+        src = range(0, len(title_line))
         while i<N and len(done) < len(src):
             shuffle(src)
             if src[0] not in done:
@@ -430,7 +431,7 @@ def determine_spread():
 
 # show_range(145)
 
-# crible(10)
+crible(10)
 
 # dist_matrix(1, 10)
 # make_cuts()
